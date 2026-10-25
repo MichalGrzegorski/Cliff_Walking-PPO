@@ -1,26 +1,43 @@
-import time
-
 import gymnasium as gym
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.distributions import Categorical
 
-# Oryginalny renderer Gymnasium
-env = gym.make("FrozenLake-v1", render_mode="human")
+ENV_NAME = "CliffWalking-v1"
+LEARNING_RATE = 0.002
+GAMMA = 0.99
+EPS_CLIP = 0.2
+K_EPOCHS = 4
+ENTROPY_COEF = 0.05
+MAX_EPISODES = 1000
+MAX_STEPS = 200
 
 
-state, info = env.reset()
+class ActorCritic(nn.Module):
+    def __init__(self, num_states, num_actions):
+        super().__init__()
+        self.fc1 = nn.Linear(num_states, 64)
 
-try:
-    for step in range(10):
+        self.actor = nn.Linear(64, num_actions)
 
-        # Losowy ruch agenta
-        action = env.action_space.sample()
+        self.critic = nn.Linear(64, 1)
 
-        # Wykonaj ruch i wyświetl animację
-        state, reward, terminated, truncated, info = env.step(action)
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
+        action_probs = F.softmax(self.actor(x), dim=-1)
+        state_value = self.critic(x)
+        return action_probs, state_value
 
-        # Zakończenie epizodu i powrót do startu
-        if terminated or truncated:
-            time.sleep(1)
-            state, info = env.reset()
 
-finally:
-    env.close()
+def state_to_tensor(state, num_states=48):
+    return F.one_hot(torch.tensor(state), num_classes=num_states).float()
+
+
+def train_ppo():
+    pass
+
+
+if __name__ == "__main__":
+    train_ppo()
