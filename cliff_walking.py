@@ -36,6 +36,72 @@ def state_to_tensor(state, num_states=48):
 
 
 def train_ppo():
+    env = gym.make(ENV_NAME)
+    num_states = env.observation_space.n
+    num_actions = env.action_space.n
+
+    model = ActorCritic(num_states, num_actions)
+
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    for episode in range(MAX_EPISODES):
+        state, _ = env.reset()
+
+    log_probs = []
+    values = []
+    rewards = []
+    masks = []
+    states = []
+    actions = []
+
+    # Faze 1 - collect data
+    for step in range(MAX_STEPS):
+        state_tensor = state_to_tensor(state, num_states)
+        states.append(state_tensor)
+
+        action_probs, state_value = model(state_tensor)
+
+        dist = Categorical(action_probs)
+        action = dist.sample()
+
+        next_state, reward, terminated, truncated, _ = env.step(action.item())
+        done = terminated or truncated
+
+        log_probs.append(dist.log_prob(action))
+        values.append(state_value)
+        rewards.append(torch.tensor([reward], dtype=torch.float32))
+        masks.append(torch.tensor([1 - int(done)], dtype=torch.float32))
+        actions.append(action)
+
+        state = next_state
+        if done:
+            break
+
+    # Faze 2 calculate advanates
+    next_state_tensor = state_to_tensor(state, num_states)
+    _, next_value = model(next_state_tensor)
+
+    returns = []
+    R = next_value.detach()
+
+    for i in reversed(range(len(rewards))):
+        R = rewards[i] + GAMMA * R * masks[i]
+        returns.insert(0, R)
+
+    returns = torch.cat(returns).detach()
+    values = torch.cat(values)
+    log_probs_old = torch.stack(log_probs).detach()
+    states_tensor = torch.stack(states)
+    actions_tensor = torch.stack(actions)
+
+    advantages = returns - values.detach()
+    advantages = advantages - advantages.mean() / advantages.std() + 1e-8
+
+    # Faze 3 ppo weights update
+    for _ in range(K_EPOCHS):
+
+        pass
+
     pass
 
 
